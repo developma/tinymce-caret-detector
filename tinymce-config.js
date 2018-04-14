@@ -21,19 +21,72 @@ class CaretDetector {
     this.showPrevChar(editor)
     this.showPostChar(editor)
   }
+  hasSpanTag(node) {
+    if (node.nodeName === 'P') {
+      let hasSpanTag = false
+      node.childNodes.forEach(childNode => {
+        if (childNode.nodeName === 'SPAN') {
+          hasSpanTag = true
+        }
+      })
+      return hasSpanTag
+    }
+    while (node.nodeName !== 'SPAN') {
+      node = this.hasSpanTag(node.parentNode)
+      if (node.nodeName === 'P') {
+        return false
+      }
+    }
+    return true
+  }
   showPrevChar(editor) {
-    const text = this.getPNode(this.getCurrentNode(editor)).innerText
-    const {startOffset, endOffset} = this.getCurrentPosition(editor)
-    if (startOffset === endOffset) {
-      document.getElementById('prev').value = text.charAt(startOffset - 1)
+    const node = this.getCurrentNode(editor)
+    const pNode = this.getPNode(node)
+    if (this.hasSpanTag(node)) {
+      let realPosition = this.calcCurrentPosition({editor: editor, node: node, pNode:pNode})
+      document.getElementById('prev').value = pNode.innerText.charAt(realPosition - 1)
+     } else {
+      const text = pNode.innerText
+      const { startOffset, endOffset } = this.getCurrentPosition(editor)
+      if (startOffset === endOffset) {
+        document.getElementById('prev').value = text.charAt(startOffset - 1)
+      }
     }
   }
+  calcCurrentPosition(obj) {
+  const { editor, node, pNode } = obj
+  const infoMap = new Map()
+  pNode.childNodes.forEach((childNode, idx) => {
+    const text = childNode.nodeName === '#text' ? childNode.nodeValue : childNode.innerText
+    infoMap.set(idx, text)
+  })
+  let realPosition = 0
+  pNode.childNodes.forEach((childNode, idx) => {
+    const { startOffset, endOffset } = this.getCurrentPosition(editor)
+    const currentText = tinymce.activeEditor.selection.getRng().startContainer.data
+    const targetText = childNode.nodeName === '#text' ? childNode.nodeValue : childNode.innerText
+    if (targetText === currentText && (startOffset === endOffset)) {
+      for (let i = 0; i < idx; i++) {
+        realPosition += infoMap.get(i).length
+      }
+      realPosition += startOffset
+    }
+  })
+  return realPosition
+}
 
   showPostChar(editor) {
-    const text = this.getPNode(this.getCurrentNode(editor)).innerText
-    const {startOffset, endOffset} = this.getCurrentPosition(editor)
-    if (startOffset === endOffset) {
-      document.getElementById('post').value = text.charAt(startOffset)
+    const node = this.getCurrentNode(editor)
+    const pNode = this.getPNode(node)
+    if (this.hasSpanTag(node)) {
+      let realPosition = this.calcCurrentPosition({ editor: editor, node: node, pNode: pNode })
+      document.getElementById('post').value = pNode.innerText.charAt(realPosition)
+    } else {
+      const text = this.getPNode(this.getCurrentNode(editor)).innerText
+      const { startOffset, endOffset } = this.getCurrentPosition(editor)
+      if (startOffset === endOffset) {
+        document.getElementById('post').value = text.charAt(startOffset)
+      }
     }
   }
 
@@ -75,7 +128,7 @@ class CaretDetector {
 
   getPNode(node) {
     while (node.nodeName !== 'P') {
-      node = getPNode(node.parentNode)
+      node = this.getPNode(node.parentNode)
     }
     return node
   }
