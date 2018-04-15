@@ -7,45 +7,50 @@ class TinyMCEConfig {
       plugins: 'textcolor',
       toolbar: 'fontsizeselect bold italic underline forecolor',
       setup: editor => {
-        editor.on('KeyUp', e => caretDetector.showInfo(editor, e))
+        editor.on('KeyUp', () => caretDetector.showInfo(editor))
       }
     })
   }
 }
 
 class CaretDetector {
-  showInfo(editor, e) {
+
+  showInfo(editor) {
     this.showPosition(editor)
     this.showCurrentNodeLocation(editor)
     this.showTextOfCurrentNode(editor)
     this.showPrevChar(editor)
     this.showPostChar(editor)
   }
-  hasSpanTag(node) {
+
+  hasDecorationTag(node) {
+    const decorationTagList = ['SPAN', 'STRONG', 'EM']
     if (node.nodeName === 'P') {
-      let hasSpanTag = false
+      let hasDecorationTag = false
       node.childNodes.forEach(childNode => {
-        if (childNode.nodeName === 'SPAN') {
-          hasSpanTag = true
+        const nodeName = childNode.nodeName
+        if (decorationTagList.indexOf(nodeName) !== -1) {
+          hasDecorationTag = true
         }
       })
-      return hasSpanTag
+      return hasDecorationTag
     }
-    while (node.nodeName !== 'SPAN') {
-      node = this.hasSpanTag(node.parentNode)
+    while (decorationTagList.indexOf(node.nodeName) !== -1) {
+      node = this.hasDecorationTag(node.parentNode)
       if (node.nodeName === 'P') {
         return false
       }
     }
     return true
   }
+
   showPrevChar(editor) {
     const node = this.getCurrentNode(editor)
     const pNode = this.getPNode(node)
-    if (this.hasSpanTag(node)) {
-      let realPosition = this.calcCurrentPosition({editor: editor, node: node, pNode:pNode})
+    if (this.hasDecorationTag(node)) {
+      let realPosition = this.calcCurrentPosition({ editor: editor, node: node, pNode: pNode })
       document.getElementById('prev').value = pNode.innerText.charAt(realPosition - 1)
-     } else {
+    } else {
       const text = pNode.innerText
       const { startOffset, endOffset } = this.getCurrentPosition(editor)
       if (startOffset === endOffset) {
@@ -53,32 +58,31 @@ class CaretDetector {
       }
     }
   }
+
   calcCurrentPosition(obj) {
-  const { editor, node, pNode } = obj
-  const infoMap = new Map()
-  pNode.childNodes.forEach((childNode, idx) => {
-    const text = childNode.nodeName === '#text' ? childNode.nodeValue : childNode.innerText
-    infoMap.set(idx, text)
-  })
-  let realPosition = 0
-  pNode.childNodes.forEach((childNode, idx) => {
-    const { startOffset, endOffset } = this.getCurrentPosition(editor)
-    const currentText = tinymce.activeEditor.selection.getRng().startContainer.data
-    const targetText = childNode.nodeName === '#text' ? childNode.nodeValue : childNode.innerText
-    if (targetText === currentText && (startOffset === endOffset)) {
-      for (let i = 0; i < idx; i++) {
-        realPosition += infoMap.get(i).length
+    const { editor, node, pNode } = obj
+    const infoMap = new Map()
+    let realPosition = 0
+    pNode.childNodes.forEach((childNode, idx) => {
+      const text = childNode.nodeName === '#text' ? childNode.nodeValue : childNode.innerText
+      infoMap.set(idx, text)
+      const { startOffset, endOffset } = this.getCurrentPosition(editor)
+      const currentText = tinymce.activeEditor.selection.getRng().startContainer.data
+      const targetText = childNode.nodeName === '#text' ? childNode.nodeValue : childNode.innerText
+      if (targetText === currentText && (startOffset === endOffset)) {
+        for (let i = 0; i < idx; i++) {
+          realPosition += infoMap.get(i).length
+        }
+        realPosition += startOffset
       }
-      realPosition += startOffset
-    }
-  })
-  return realPosition
-}
+    })
+    return realPosition
+  }
 
   showPostChar(editor) {
     const node = this.getCurrentNode(editor)
     const pNode = this.getPNode(node)
-    if (this.hasSpanTag(node)) {
+    if (this.hasDecorationTag(node)) {
       let realPosition = this.calcCurrentPosition({ editor: editor, node: node, pNode: pNode })
       document.getElementById('post').value = pNode.innerText.charAt(realPosition)
     } else {
@@ -90,7 +94,6 @@ class CaretDetector {
     }
   }
 
-
   showTextOfCurrentNode(editor) {
     const node = this.getPNode(this.getCurrentNode(editor))
     document.getElementById('text').value = node.innerText
@@ -99,18 +102,22 @@ class CaretDetector {
   showCurrentNodeLocation(editor) {
     document.getElementById('location').value = this.getCurrentNodeLocation(editor, this.getCurrentNode(editor))
   }
+
   showPosition(editor) {
-    const {startOffset, endOffset} = this.getCurrentPosition(editor)
+    const { startOffset, endOffset } = this.getCurrentPosition(editor)
     document.getElementById('startOffset').value = startOffset
     document.getElementById('endOffset').value = endOffset
   }
+
   getCurrentPosition(editor) {
     const { startOffset, endOffset } = editor.selection.getRng()
     return { startOffset, endOffset }
   }
+
   getRootNode(editor) {
     return editor.getBody()
   }
+
   getCurrentNode(editor) {
     return editor.selection.getNode()
   }
