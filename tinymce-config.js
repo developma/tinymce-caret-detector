@@ -3,18 +3,25 @@ class TinyMCEConfig {
     const caretDetector = new CaretDetector()
     tinymce.init({
       selector: '#mytextarea',
+      menubar: false,
       branding: false,
       plugins: 'textcolor',
       toolbar: 'fontsizeselect bold italic underline forecolor',
       setup: editor => {
         editor.on('KeyUp', () => caretDetector.showInfo(editor))
-      }
+        editor.on('change', () => console.log('change'))
+      },
+      content_css: './index.css'
     })
+    return this
+  }
+  attach() {
+    const $ = tinymce.dom.DomQuery
+    $('#tinymce').on({ input: e => console.log('input!' + e) })
   }
 }
 
 class CaretDetector {
-
   showInfo(editor) {
     this.showPosition(editor)
     this.showCurrentNodeLocation(editor)
@@ -44,19 +51,29 @@ class CaretDetector {
     return true
   }
 
-  showPrevChar(editor) {
+  getPrevChar(editor) {
     const node = this.getCurrentNode(editor)
     const pNode = this.getPNode(node)
+    let prevChar = null
     if (this.hasDecorationTag(node)) {
-      let realPosition = this.calcCurrentPosition({ editor: editor, node: node, pNode: pNode })
-      document.getElementById('prev').value = pNode.innerText.charAt(realPosition - 1)
+      let realPosition = this.calcCurrentPosition({
+        editor: editor,
+        node: node,
+        pNode: pNode
+      })
+      prevChar = pNode.innerText.charAt(realPosition - 1)
     } else {
       const text = pNode.innerText
       const { startOffset, endOffset } = this.getCurrentPosition(editor)
       if (startOffset === endOffset) {
-        document.getElementById('prev').value = text.charAt(startOffset - 1)
+        prevChar = text.charAt(startOffset - 1)
       }
     }
+    return prevChar
+  }
+
+  showPrevChar(editor) {
+    document.getElementById('prev').value = this.getPrevChar(editor)
   }
 
   calcCurrentPosition(obj) {
@@ -64,12 +81,19 @@ class CaretDetector {
     const infoMap = new Map()
     let realPosition = 0
     pNode.childNodes.forEach((childNode, idx) => {
-      const text = childNode.nodeName === '#text' ? childNode.nodeValue : childNode.innerText
+      const text =
+        childNode.nodeName === '#text'
+          ? childNode.nodeValue
+          : childNode.innerText
       infoMap.set(idx, text)
       const { startOffset, endOffset } = this.getCurrentPosition(editor)
-      const currentText = tinymce.activeEditor.selection.getRng().startContainer.data
-      const targetText = childNode.nodeName === '#text' ? childNode.nodeValue : childNode.innerText
-      if (targetText === currentText && (startOffset === endOffset)) {
+      const currentText = tinymce.activeEditor.selection.getRng().startContainer
+        .data
+      const targetText =
+        childNode.nodeName === '#text'
+          ? childNode.nodeValue
+          : childNode.innerText
+      if (targetText === currentText && startOffset === endOffset) {
         for (let i = 0; i < idx; i++) {
           realPosition += infoMap.get(i).length
         }
@@ -78,20 +102,29 @@ class CaretDetector {
     })
     return realPosition
   }
-
-  showPostChar(editor) {
+  getPostChar(editor) {
+    let postChar = null
     const node = this.getCurrentNode(editor)
     const pNode = this.getPNode(node)
     if (this.hasDecorationTag(node)) {
-      let realPosition = this.calcCurrentPosition({ editor: editor, node: node, pNode: pNode })
-      document.getElementById('post').value = pNode.innerText.charAt(realPosition)
+      let realPosition = this.calcCurrentPosition({
+        editor: editor,
+        node: node,
+        pNode: pNode
+      })
+      postChar = pNode.innerText.charAt(realPosition)
     } else {
       const text = this.getPNode(this.getCurrentNode(editor)).innerText
       const { startOffset, endOffset } = this.getCurrentPosition(editor)
       if (startOffset === endOffset) {
-        document.getElementById('post').value = text.charAt(startOffset)
+        postChar = text.charAt(startOffset)
       }
     }
+    return postChar
+  }
+
+  showPostChar(editor) {
+    document.getElementById('post').value = this.getPostChar(editor)
   }
 
   showTextOfCurrentNode(editor) {
@@ -100,7 +133,10 @@ class CaretDetector {
   }
 
   showCurrentNodeLocation(editor) {
-    document.getElementById('location').value = this.getCurrentNodeLocation(editor, this.getCurrentNode(editor))
+    document.getElementById('location').value = this.getCurrentNodeLocation(
+      editor,
+      this.getCurrentNode(editor)
+    )
   }
 
   showPosition(editor) {
@@ -141,4 +177,4 @@ class CaretDetector {
   }
 }
 
-new TinyMCEConfig().setup()
+new TinyMCEConfig().setup().attach()
